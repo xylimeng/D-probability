@@ -1,9 +1,11 @@
 # source code for D-probabilities 
 
 # source function for efficient Gaussian process fitting 
-# 9/27- add KL3 (marginal predictive density)
-#     - update the name use (KL1, KL1s, KL2, KL2s, KL3, KL3s)
-#     - use flat prior 
+# Note: 
+#  - use flat prior 
+#  - return type 1 and type 2 KL
+
+
 # TR calculates the tract of a squared matrix 
 tr <- function(A) {sum(diag(A))}
 
@@ -189,7 +191,7 @@ print.GP <- function(ret.par){
   print(summary)
 }
 
-data2KL <- function(X.j, y, GP, g, type = 1, sigma.method = 2, a = 0, b = 0){
+data2KL <- function(X.j, y, GP, g, type = 1, a = 0, b = 0){
   n = length(y); Y = y
   # H.j = X %*% solve(A) %*% t(X); used to be 'part'
   H.j = X.j %*% solve(t(X.j) %*% X.j, t(X.j))
@@ -217,18 +219,10 @@ data2KL <- function(X.j, y, GP, g, type = 1, sigma.method = 2, a = 0, b = 0){
   # either use point estimates or use integral  
   const = rep(NA, 3)
   
-  if (sigma.method == 1){
     const[1] = alpha.star.j / beta.star.j 
     const[2] = const[1] * beta.star / (alpha.star - 1)
     const[3] = log(beta.star.j) - digamma(alpha.star.j) - 
       (log(beta.star) - digamma(alpha.star))
-  }
-  
-  # sigma.method not used in the updated version 
-  # if (sigma.method == 2){ # simplified version 
-  #   # use sigma.j = sigma 
-  #   const= c(alpha.star / beta.star, 1, 0)
-  # }
   
   if (type == 1){ # use posterior mean's 
     double.KL.j = mean(diff.Y.hat ^2) * const[1] + 
@@ -240,15 +234,6 @@ data2KL <- function(X.j, y, GP, g, type = 1, sigma.method = 2, a = 0, b = 0){
       tr(solve(H.j + diag(n), H + diag(n)))/n * const[2] + const[3] - 1 + (determinant(H.j + diag(n))$modulus - determinant(H + diag(n))$modulus)/n
   }
   
-  # type 3 not used 
-  # if (type == 3){ # use predictive densities + marginal (sum)
-  #   H.j[row(H.j) != col(H.j)] <- 0
-  #   H[row(H) != col(H)] <- 0
-  #   
-  #   double.KL.j = mean(diff.Y.hat * solve(H.j + diag(n), diff.Y.hat)) * const[1] + 
-  #     tr(solve(H.j + diag(n), H + diag(n)))/n * const[2] + const[3] - 1 + (determinant(H.j + diag(n))$modulus - determinant(H + diag(n))$modulus)/n
-  # }
-  
   KL.j = double.KL.j / 2
   # calculate n * KL 
   return(KL.j)
@@ -258,23 +243,14 @@ all.in.one <- function(x, y, output = 1){
   GP <- GP.fit(x, y, a = 0, b = 0)
   n = length(y)
   X = cbind(1, x)
-  ret = matrix(NA, 2, 6); col.name = rep(NA, 6)
-  count = 0
+  ret = matrix(NA, 2, 2); col.name = rep(NA, 2)
   g.g = Inf # use flat priors 
   
-  for (g.type in 1:3){
-    for (g.sigma.method in 1:2){
-      count = count + 1
-      ## project to: KL1 KL2 KL1s KL2s KL2_m KL2s_m (let KL2_m be type 3 - KL3)
-      idx = sprintf('KL%d%s', g.type, ifelse(g.sigma.method == 1, "", "s"))
-      # idx = paste(g.g, g.type, g.sigma.method, sep = "|")
-      col.name[count] = idx
-      ret[1, count] = data2KL(X, y, GP, g = g.g, type = g.type, 
-                              sigma.method = g.sigma.method)
-      ret[2, count] = data2KL(X[,1], y, GP,  g = g.g, type = g.type, 
-                              sigma.method = g.sigma.method)
-      
-    }
+  for (g.type in 1:2){
+      idx = sprintf('KL%d', g.type)
+      col.name[g.type] = idx
+      ret[1, g.type] = data2KL(X, y, GP, g = g.g, type = g.type)
+      ret[2, g.type] = data2KL(X[,1], y, GP,  g = g.g, type = g.type)
     
   }
   
