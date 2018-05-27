@@ -267,3 +267,113 @@ all.in.one <- function(x, y, output = 1){
   return(return_value)
 }
 
+
+### Utility functions for many p (covariates) ------
+
+# source functions for many p 
+# including both BAS and D-Bayes 
+# 
+# D-Bayes
+
+source("source-GP.R")
+library(BAS)
+
+# Utility functions 
+# rank starts from 1; intercept is always included 
+binary2rank <- function(x){
+  # x: (intercept, x1, x2, ..., xp)
+  p = length(x) - 1
+  sum(x[-1] * 2^(0:(p - 1))) + 1 
+}
+
+p2model.id <- function(p){
+  m <- t(sapply(0:(2^p - 1),function(x){ as.integer(intToBits(x))[1:p]}))
+  idx = lapply(1:2^p, function(k) which(m[k, ] == 1))
+  rank = sapply(1:2^p, function(k) binary2rank(c(1, m[k, ]))) 
+  
+  return(list(m = m, idx = idx, rank = rank))
+}
+
+# return (-n * kl): DO NOT take the exp at this moment 
+conv.summary.KL <- function(input, model.id, n, num.model){
+  # num.model = min(length(input), num.model)
+  idx = order(input, decreasing = FALSE)[1:num.model]
+  ret = c(model.id$rank[idx], -n * input[idx])
+  return(ret)
+}
+
+# input: ret = BAS.lm from method "hyper.g" 
+# output: BAS from other method 
+conv.update <- function(method, ret){
+  if ((method == "g-prior") | (method == "hyper-g-laplace")){
+    ret = update(ret, newprior=method, alpha = 3)
+  } else {
+    ret = update(ret, newprior=method)
+  }
+  ret 
+}
+
+# summarize each method 
+conv.summary <- function(ret, num.model){
+  p = ncol(ret$X) - 1
+  rank = apply(summary(ret, n.models = num.model)[, 1:(p + 1)], 1, binary2rank)
+  posterior.prob <- summary(ret, n.models = num.model)[, p + 3]
+  return(c(rank, posterior.prob))
+}
+
+
+# add num.model 
+all.in.one_D_Bayes <- function(x, y, num.model, g.a, g.b, g.g, anisotropic = TRUE){
+  
+  p = ifelse(is.null(ncol(x)), 1, ncol(x))
+  y = as.vector(y)
+  n = length(y)
+  model.id = p2model.id(p)
+  
+  ## D-Bayes
+  # for (g.ab in c(0, 0.1, 1, 10, 100)){
+  ret = GP.fit(x, y, a = g.a, b = g.b, jitter = 0, anisotropic = anisotropic)
+  #  mean((y - ret$detail$Y.hat)^2)
+  
+  KL.all = matrix(NA, nrow = 6, ncol = 2^p) # all 2^p models 
+  count = 0
+  for (g.type in 1:3){
+    for (g.sigma.method in 1:2){
+      count = count + 1
+      KL.all[count, ] = unlist(lapply(model.id$idx, function(k)
+        data2KL(X.j = cbind(1, x[, k]), y, g = g.g , GP = ret, type = g.type,
+                sigma.method = g.sigma.method, a = 0, b = 0)))
+    }
+  }
+  
+  summary.D_Bayes = sapply(1:6, function(k) 
+    conv.summary.KL(KL.all[k, ], model.id, n, num.model))
+  colnames(summary.D_Bayes) = c("KL1", "KL1s", "KL2", "KL2s", "KL3", "KL3s")
+  # }
+  
+  ## BAS 
+  all.method = c("hyper-g", "AIC", "BIC", "g-prior", "ZS-null", "ZS-full", "hyper-g-laplace", "hyper-g-n", "EB-local", "EB-global")
+  
+  bas_all = as.list(1:length(all.method))
+  names(bas_all) <- all.method
+  
+  ret = bas.lm(y ~ x, method = "BAS", 
+               prior = "hyper-g", alpha = 3, modelprior = uniform())
+  bas_all[["hyper-g"]] <- ret
+  for (method in all.method[2:length(all.method)]){
+    bas_all[[method]] <- tryCatch(conv.update(method, ret), error = function(e) NA)
+  }
+  
+  bas_summary = matrix(NA, num.model * 2, ncol = length(all.method))
+  colnames(bas_summary) = all.method
+  
+  for (method in all.method){
+    bas_summary[ ,method] = tryCatch(
+      conv.summary(bas_all[[method]], num.model), error = function(e) rep(NA, 10))
+  }
+  
+  all_summary = cbind(summary.D_Bayes, bas_summary) 
+  return(all_summary)
+  
+}
+
