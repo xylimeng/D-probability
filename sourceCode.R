@@ -5,7 +5,9 @@
 #  - use flat prior 
 #  - return type 1 and type 2 KL
 
+library(BAS)
 
+### Utility function for Gaussian process fitting & returning KLs for one design matrix ----
 # TR calculates the tract of a squared matrix 
 tr <- function(A) {sum(diag(A))}
 
@@ -269,14 +271,7 @@ all.in.one <- function(x, y, output = 1){
 
 
 ### Utility functions for many p (covariates) ------
-
-# source functions for many p 
 # including both BAS and D-Bayes 
-# 
-# D-Bayes
-
-source("source-GP.R")
-library(BAS)
 
 # Utility functions 
 # rank starts from 1; intercept is always included 
@@ -335,20 +330,16 @@ all.in.one_D_Bayes <- function(x, y, num.model, g.a, g.b, g.g, anisotropic = TRU
   ret = GP.fit(x, y, a = g.a, b = g.b, jitter = 0, anisotropic = anisotropic)
   #  mean((y - ret$detail$Y.hat)^2)
   
-  KL.all = matrix(NA, nrow = 6, ncol = 2^p) # all 2^p models 
-  count = 0
-  for (g.type in 1:3){
-    for (g.sigma.method in 1:2){
-      count = count + 1
-      KL.all[count, ] = unlist(lapply(model.id$idx, function(k)
+  KL.all = matrix(NA, nrow = 2, ncol = 2^p) # all 2^p models 
+  for (g.type in 1:2){
+      KL.all[g.type, ] = unlist(lapply(model.id$idx, function(k)
         data2KL(X.j = cbind(1, x[, k]), y, g = g.g , GP = ret, type = g.type,
                 sigma.method = g.sigma.method, a = 0, b = 0)))
-    }
   }
   
-  summary.D_Bayes = sapply(1:6, function(k) 
+  summary.D_Bayes = sapply(1:2, function(k) 
     conv.summary.KL(KL.all[k, ], model.id, n, num.model))
-  colnames(summary.D_Bayes) = c("KL1", "KL1s", "KL2", "KL2s", "KL3", "KL3s")
+  colnames(summary.D_Bayes) = c("KL1", "KL2")
   # }
   
   ## BAS 
