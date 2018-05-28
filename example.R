@@ -43,7 +43,7 @@ idx[c(which.max(abs.prob[1, ]), which.max(abs.prob[2, ]))]
 
 ## use absolute D-probabilities to assess model fitting 
 c(Type1=max(abs.prob[1,]), Type2=max(abs.prob[2,]))
-# small D-probability suggest a lack of fit for all models 
+# small D-probabilities suggest a lack of fit for all models 
 
 ## out-of-sample prediction error for selected models and the reference model 
 set.seed(20161)
