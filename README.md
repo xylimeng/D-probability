@@ -97,5 +97,5 @@ c(Type1=RMSE1, Type2 = RMSE2, Reference=RMSE_ref)
 
 ## Reference: 
 
-Li, M. and Dunson, D. (2017). [Comparing and weighting imperfect models using D-probabilities. Revision submitted. arXiv:1611.01241v3](https://arxiv.org/abs/1611.01241v3). Revision submitted. arXiv:1611.01241v3
+Li, M. and Dunson, D. (2018). [Comparing and weighting imperfect models using D-probabilities](https://arxiv.org/abs/1611.01241v3). Revision submitted. arXiv:1611.01241v3
 
