@@ -97,5 +97,5 @@ c(Type1=RMSE1, Type2 = RMSE2, Reference=RMSE_ref)
 
 ## Reference: 
 
-Li, M. and Dunson, D. (2017). [Framework for Probabilistic Inferences from Imperfect Models](https://arxiv.org/abs/1611.01241v2). Under revision. arXiv:1611.01241
+Li, M. and Dunson, D. (2017). [Comparing and weighting imperfect models using D-probabilities. Revision submitted. arXiv:1611.01241v3](https://arxiv.org/abs/1611.01241v3). Revision submitted. arXiv:1611.01241v3
 
